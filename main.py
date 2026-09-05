@@ -11,6 +11,10 @@ init_firebase_admin()
 
 from aggregator.merger import aggregate_news
 
+# Auth & OTP
+from routers.auth import router as auth_router
+from services.otp_service import init_otp_table, cleanup_expired_otps
+
 # Core Routers
 from routers.rss import router as rss_router
 from routers.article import router as article_router
@@ -99,6 +103,7 @@ async def startup_event():
 
     # Initialize Neon PostgreSQL Connection Pool
     init_db_pool()
+    init_otp_table()
 
     try:
         scheduler_thread = threading.Thread(
@@ -141,6 +146,7 @@ async def shutdown_event():
 # ROUTERS
 # ==========================================================
 
+app.include_router(auth_router)
 app.include_router(rss_router)
 app.include_router(article_router)
 app.include_router(db_feed_router)

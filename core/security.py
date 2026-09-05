@@ -31,6 +31,8 @@ def init_firebase_admin():
     try:
         if creds_env.strip().startswith("{"):
             cred_dict = json.loads(creds_env)
+            if "private_key" in cred_dict and isinstance(cred_dict["private_key"], str):
+                cred_dict["private_key"] = cred_dict["private_key"].replace("\\n", "\n")
             cred = credentials.Certificate(cred_dict)
         elif os.path.exists(creds_env):
             cred = credentials.Certificate(creds_env)
