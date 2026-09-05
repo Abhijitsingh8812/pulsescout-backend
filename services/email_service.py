@@ -2,17 +2,27 @@ import os
 import smtplib
 from email.message import EmailMessage
 import urllib.request
+import urllib.error
 import json
 
 
 def send_otp_email(to_email: str, otp: str) -> bool:
     """
     Delivers a 6-digit OTP verification code to the recipient email address.
-    Supports SMTP, Resend API, or development logging fallback.
+    Supports Resend API, Standard SMTP, or development logging fallback.
+    Development mode fallback activates ONLY when ENVIRONMENT is explicitly set to development, dev, or local.
     """
-    sender_email = os.getenv("EMAIL_FROM", "auth@pulsescout.com")
-    subject = "Your PulseScout verification code"
+    env = os.getenv("ENVIRONMENT", "").lower()
+    is_dev = env in ("development", "dev", "local")
+
+    resend_key = os.getenv("RESEND_API_KEY")
+    smtp_host = os.getenv("SMTP_HOST")
     
+    # Default sender: if using Resend without custom domain, default to onboarding@resend.dev
+    default_from = "PulseScout Auth <onboarding@resend.dev>" if resend_key else "PulseScout Auth <auth@pulsescout.com>"
+    sender_email = os.getenv("EMAIL_FROM", default_from)
+    subject = "Your PulseScout verification code"
+
     html_content = f"""
     <!DOCTYPE html>
     <html>
@@ -51,7 +61,6 @@ If you did not request this code, you can safely ignore this email.
     """
 
     # 1. Try Resend API if API Key present
-    resend_key = os.getenv("RESEND_API_KEY")
     if resend_key:
         try:
             url = "https://api.resend.com/emails"
@@ -75,11 +84,13 @@ If you did not request this code, you can safely ignore this email.
                 if resp.status in (200, 201):
                     print(f"[EMAIL SERVICE] OTP email delivered to {to_email} via Resend API.")
                     return True
+        except urllib.error.HTTPError as e:
+            err_body = e.read().decode("utf-8") if e.fp else str(e)
+            print(f"[EMAIL SERVICE ERROR] Resend API HTTP {e.code} failure: {err_body}")
         except Exception as e:
-            print(f"[EMAIL SERVICE WARNING] Resend delivery failed: {e}")
+            print(f"[EMAIL SERVICE ERROR] Resend delivery failed: {e}")
 
     # 2. Try Standard SMTP if SMTP_HOST present
-    smtp_host = os.getenv("SMTP_HOST")
     if smtp_host:
         try:
             smtp_port = int(os.getenv("SMTP_PORT", "587"))
@@ -101,13 +112,13 @@ If you did not request this code, you can safely ignore this email.
                 print(f"[EMAIL SERVICE] OTP email delivered to {to_email} via SMTP.")
                 return True
         except Exception as e:
-            print(f"[EMAIL SERVICE WARNING] SMTP delivery failed: {e}")
+            print(f"[EMAIL SERVICE ERROR] SMTP delivery failed: {e}")
 
-    # 3. Development Mode Fallback
-    is_dev = os.getenv("ENVIRONMENT", "development").lower() in ("development", "dev", "local")
+    # 3. Explicit Development Mode Fallback ONLY
     if is_dev:
         print(f"[EMAIL SERVICE DEV] Verification code for {to_email}: {otp}")
         return True
     
     print(f"[EMAIL SERVICE ERROR] Email delivery failed or provider unconfigured for {to_email} in production environment!")
     return False
+
