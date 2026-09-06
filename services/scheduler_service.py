@@ -171,6 +171,11 @@ def update_all_news():
     print("=" * 70)
 
 
+def run_trending_startup_test():
+    print("[SCHEDULER TEST] Running one-time trending notification test now...")
+    check_and_send_trending_notifications()
+
+
 # ==========================================================
 # START / STOP SCHEDULER
 # ==========================================================
@@ -227,6 +232,19 @@ def start_scheduler():
             coalesce=True
         )
         print("[SCHEDULER] Trending notification job registered: every 30 minutes")
+
+        # One-time trending notification startup test in 60 seconds
+        scheduler.add_job(
+            func=run_trending_startup_test,
+            trigger=DateTrigger(
+                run_date=datetime.now(timezone.utc) + timedelta(seconds=60)
+            ),
+            id="trending_notification_startup_test",
+            replace_existing=True,
+            max_instances=1,
+            coalesce=True
+        )
+        print("[SCHEDULER TEST] One-time trending notification test scheduled in 60 seconds")
 
         scheduler.start()
         _scheduler_started = True
