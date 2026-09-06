@@ -14,6 +14,9 @@ from services.rss_service import (
 from services.discovery_service import (
     get_discovery_news
 )
+from services.notification_service import (
+    check_and_send_trending_notifications
+)
 
 # ==========================================================
 # SINGLE SCHEDULER INSTANCE & DISTRIBUTED LOCK CONTROL
@@ -207,6 +210,18 @@ def start_scheduler():
                 minutes=15
             ),
             id="news_update_job",
+            replace_existing=True,
+            max_instances=1,
+            coalesce=True
+        )
+
+        # Run trending notification check every 30 minutes
+        scheduler.add_job(
+            func=check_and_send_trending_notifications,
+            trigger=IntervalTrigger(
+                minutes=30
+            ),
+            id="trending_notification_job",
             replace_existing=True,
             max_instances=1,
             coalesce=True
