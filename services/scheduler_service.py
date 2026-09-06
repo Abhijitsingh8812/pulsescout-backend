@@ -226,14 +226,26 @@ def start_scheduler():
             max_instances=1,
             coalesce=True
         )
+        print("[SCHEDULER] Trending notification job registered: every 30 minutes")
 
         scheduler.start()
         _scheduler_started = True
+
+        job = scheduler.get_job("trending_notification_job")
+        if job:
+            print(
+                f"[SCHEDULER] Next trending notification run: {job.next_run_time}"
+            )
+        else:
+            print(
+                "[SCHEDULER ERROR] Trending notification job was not found after scheduler startup."
+            )
 
         print("=" * 70)
         print("SCHEDULER STARTED SUCCESSFULLY")
         print("Initial update in 30 seconds")
         print("Recurring update every 15 minutes")
+        print("Trending notification check every 30 minutes")
         print("=" * 70)
 
 
