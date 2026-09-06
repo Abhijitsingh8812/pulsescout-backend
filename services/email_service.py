@@ -1,5 +1,6 @@
 import os
 import smtplib
+import socket
 from email.message import EmailMessage
 import urllib.request
 import urllib.error
@@ -104,13 +105,19 @@ If you did not request this code, you can safely ignore this email.
             msg.set_content(plain_content)
             msg.add_alternative(html_content, subtype="html")
 
-            with smtplib.SMTP(smtp_host, smtp_port) as server:
+            with smtplib.SMTP(smtp_host, smtp_port, timeout=10) as server:
                 server.starttls()
                 if smtp_user and smtp_pass:
                     server.login(smtp_user, smtp_pass)
                 server.send_message(msg)
                 print(f"[EMAIL SERVICE] OTP email delivered to {to_email} via SMTP.")
                 return True
+        except (socket.timeout, TimeoutError) as e:
+            print(f"[EMAIL SERVICE ERROR] SMTP connection to {smtp_host}:{smtp_port} timed out after 10s: {e}")
+        except smtplib.SMTPAuthenticationError as e:
+            print(f"[EMAIL SERVICE ERROR] SMTP authentication failed for user '{smtp_user}' on {smtp_host}: {e.smtp_code} {e.smtp_error}")
+        except smtplib.SMTPException as e:
+            print(f"[EMAIL SERVICE ERROR] SMTP protocol exception on {smtp_host}: {e}")
         except Exception as e:
             print(f"[EMAIL SERVICE ERROR] SMTP delivery failed: {e}")
 
