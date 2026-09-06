@@ -7,6 +7,20 @@ import urllib.error
 import json
 
 
+class IPv4SMTP(smtplib.SMTP):
+    """
+    SMTP client subclass that forces IPv4 (socket.AF_INET) socket resolution
+    while keeping the logical SMTP hostname (e.g., smtp.gmail.com) intact for TLS/SNI.
+    """
+    def _get_socket(self, host, port, timeout):
+        addr_info = socket.getaddrinfo(host, port, socket.AF_INET, socket.SOCK_STREAM)
+        if not addr_info:
+            raise socket.gaierror(f"Could not resolve IPv4 address for {host}")
+        ipv4_ip = addr_info[0][4][0]
+        print(f"[EMAIL SERVICE INFO] Diagnostic IPv4 resolution: {host} -> {ipv4_ip}:{port}")
+        return socket.create_connection((ipv4_ip, port), timeout, self.source_address)
+
+
 def send_otp_email(to_email: str, otp: str) -> bool:
     """
     Delivers a 6-digit OTP verification code to the recipient email address.
@@ -105,12 +119,12 @@ If you did not request this code, you can safely ignore this email.
             msg.set_content(plain_content)
             msg.add_alternative(html_content, subtype="html")
 
-            with smtplib.SMTP(smtp_host, smtp_port, timeout=10) as server:
+            with IPv4SMTP(smtp_host, smtp_port, timeout=10) as server:
                 server.starttls()
                 if smtp_user and smtp_pass:
                     server.login(smtp_user, smtp_pass)
                 server.send_message(msg)
-                print(f"[EMAIL SERVICE] OTP email delivered to {to_email} via SMTP.")
+                print(f"[EMAIL SERVICE] OTP email delivered to {to_email} via SMTP (IPv4).")
                 return True
         except (socket.timeout, TimeoutError) as e:
             print(f"[EMAIL SERVICE ERROR] SMTP connection to {smtp_host}:{smtp_port} timed out after 10s: {e}")
